@@ -1,67 +1,39 @@
-require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
-const helmet = require("helmet");
-const User = require("../models/User");
+const User = require("./models/user");
+require("dotenv").config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
 app.use(express.json());
 app.use(cors());
-app.use(
-  helmet({
-    contentSecurityPolicy: false,
-  }),
-);
 
-const mongoURI = process.env.MONGODB_URI;
+const PORT = process.env.PORT || 5000;
 
-mongoose
-  .connect(mongoURI)
-  .then(() => console.log("Connected to MongoDB Atlas"))
-  .catch((err) => {
-    console.error("MongoDB Connection Error:", err.message);
-    process.exit(1);
-  });
-
-app.get("/", (req, res) => {
-  res.send("Server is live!");
-});
-
-app.post("/api/signup", async (req, res) => {
+app.post("/api/save-user", async (req, res) => {
   try {
-    const { email, username, password } = req.body;
+    const { supabaseId, email, username } = req.body;
 
-    const newUser = new User({ email, username, password });
+    const existingUser = await User.findOne({ supabaseId });
+    if (existingUser)
+      return res.status(200).json({ message: "User already synced" });
 
+    const newUser = new User({ supabaseId, email, username });
     await newUser.save();
 
-    res.status(201).json({ message: "User created in MongoDB successfully!" });
+    res.status(201).json({ message: "User synced to MongoDB successfully!" });
   } catch (error) {
-    console.error(error);
-    res
-      .status(500)
-      .json({ error: "Failed to create user. Email might already exist." });
-  }
-});
-app.post("/api/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch)
-      return res.status(400).json({ message: "Invalid credentials" });
-
-    res.status(200).json({ message: "Login successful!", userId: user._id });
-  } catch (error) {
-    res.status(500).json({ error: "Server error during login" });
+    res.status(500).json({ error: "Failed to sync" });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Checking if server is  running on http://localhost:${PORT}`);
-});
+mongoose
+  .connect(process.env.MONGODB_URI)
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  })
+  .catch((err) => console.error("Database Error:", err));
+
+app.listen(5000, () => console.log("Server running"));
