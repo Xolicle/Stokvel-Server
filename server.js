@@ -3,6 +3,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const helmet = require("helmet");
+const User = require("../models/User");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -25,16 +26,37 @@ mongoose
   });
 
 app.get("/", (req, res) => {
-  res.send("Server is live! Ready for Vercel and Supabase integration.");
+  res.send("Server is live!");
 });
 
 app.post("/api/signup", async (req, res) => {
   try {
+    const { email, username, password } = req.body;
+
+    const newUser = new User({ email, username, password });
+
+    await newUser.save();
+
+    res.status(201).json({ message: "User created in MongoDB successfully!" });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ error: "Failed to create user. Email might already exist." });
+  }
+});
+app.post("/api/login", async (req, res) => {
+  try {
     const { email, password } = req.body;
-    //need to add create new user
-    console.log(`New signup attempt: ${email}`);
-    console.log(`New signup attempt: ${password}`);
-    res.status(201).json({ message: "User data received successfully!" });
+
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch)
+      return res.status(400).json({ message: "Invalid credentials" });
+
+    res.status(200).json({ message: "Login successful!", userId: user._id });
   } catch (error) {
     res.status(500).json({ error: "Server error during login" });
   }
