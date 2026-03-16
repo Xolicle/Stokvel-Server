@@ -10,6 +10,20 @@ app.use(cors());
 
 const PORT = process.env.PORT || 5000;
 
+app.get("/api/user/:supabaseId", async (req, res) => {
+  try {
+    const user = await User.findOne({ supabaseId: req.params.supabaseId });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found in MongoDB" });
+    }
+
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(500).json({ error: "Server error fetching profile" });
+  }
+});
+
 app.post("/api/save-user", async (req, res) => {
   try {
     const { supabaseId, email, username } = req.body;
